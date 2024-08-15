@@ -26,15 +26,42 @@
         <v-icon>{{ isMuted ? 'mdi-volume-off' : 'mdi-volume-high' }}</v-icon>
       </v-btn>
       <v-btn icon @click="togglePlay">
-        <v-icon>{{ isPlaying ? 'mdi-stop' : 'mdi-play' }}</v-icon>
+        <v-icon>{{ isPlaying ? 'mdi-pause' : 'mdi-play' }}</v-icon>
       </v-btn>
     </div>
+    <audio onpause="isPlaying = false" onplay="isPlaying = true" ref="player" src="http://dunkinradio.org/hls/stream.m3u8" class="d-none" id="audio-player"></audio>
   </v-toolbar>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import { defineProps } from 'vue';
+import Hls from 'hls.js'
+import { onMounted, watch } from 'vue';
+
+const isLocal = process.env.NODE_ENV === 'development';
+const streamUrl = isLocal ? 'http://dunkinradio.org/hls/stream.m3u8' : '/hls/stream.m3u8';
+
+const player = ref<HTMLAudioElement | null>(null);
+
+onMounted(() => {
+  var hls = new Hls();
+  if (!player.value) return;
+
+  const url = player.value.src;
+  if (Hls.isSupported()) {
+    hls.loadSource(url);
+    hls.attachMedia(player.value);
+    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+      play();
+    });
+  } else if (player.value.canPlayType('application/vnd.apple.mpegurl')) {
+    player.value.src = url;
+    player.value.addEventListener('canplay', function () {
+      play();
+    });
+  }
+});
 
 const props = defineProps<{ songName: string, artistName: string, albumUrl: string, spotifyLink: string }>();
 
@@ -43,9 +70,26 @@ const volume = ref(50);
 const oldVolume = ref(volume.value);
 const isMuted = ref(false);
 
+watch(volume, (newVolume) => {
+  if (!player.value) return;
+  player.value.volume = newVolume / 100;
+});
+
+const play = () => {
+  player.value?.play();
+};
+
+const pause = () => {
+  player.value?.pause();
+};
+
 const togglePlay = () => {
   isPlaying.value = !isPlaying.value;
-  // Add logic to play or pause the HLS stream
+  if (isPlaying.value) {
+    play();
+  } else {
+    pause();
+  }
 };
 
 const toggleMute = () => {
