@@ -11,6 +11,7 @@
     "type-check": "vue-tsc --build --force"
   },
   "dependencies": {
+    "@types/crypto-js": "^4.2.2",
     "crypto-js": "^4.2.0",
     "hls.js": "^1.5.14",
     "vite-plugin-vuetify": "^2.0.4",
