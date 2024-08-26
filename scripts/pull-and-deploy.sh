@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+source .env
+
 # Check if CERTBOT_EMAIL is set
 if [[ -z "$CERTBOT_EMAIL" ]]; then
   echo "CERTBOT_EMAIL is not set. WTF?!"
