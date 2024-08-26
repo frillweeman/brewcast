@@ -16,6 +16,6 @@ echo "Pulling docker image..."
 docker pull public.ecr.aws/w2o0b9g0/frillweeman/brewcast-prod:latest
 
 echo "Restarting docker container..."
-docker-compose -f docker-compose.prod.yml up -d --no-deps ffmpeg-nginx
+docker compose -f docker-compose.prod.yml up -d
 
 echo "Container restarted. Done!"
