@@ -25,11 +25,24 @@
       <v-btn icon @click="toggleMute">
         <v-icon>{{ isMuted ? 'mdi-volume-off' : 'mdi-volume-high' }}</v-icon>
       </v-btn>
-      <v-btn icon @click="togglePlay">
+      <v-btn :loading="isLoadingStream" icon v-bind="props" @click="togglePlay">
         <v-icon>{{ isPlaying ? 'mdi-pause' : 'mdi-play' }}</v-icon>
       </v-btn>
     </div>
     <audio onpause="isPlaying = false" onplay="isPlaying = true" ref="player" :src="streamUrl" class="d-none" id="audio-player"></audio>
+    <v-overlay persistent max-width="500" class="d-flex justify-center align-center" :model-value="!hasAgreed">
+      <v-card>
+        <v-card-title class="text-center">Access Authorization and Disclaimer</v-card-title>
+        <v-card-text id="legal-agreement">
+          By accessing this website and the Dunkin Radio stream, you confirm that you are authorized to do so. Your use of this site is at your own risk, and neither the website owner nor MixHits Radio, LLC, is liable for any damages or issues that may arise. By clicking "Agree," you accept full responsibility for compliance with all applicable terms and conditions.
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" color="red" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">Nah, Fuck this</v-btn>
+          <v-spacer />
+          <v-btn variant="tonal" color="primary" @click="agreeToTerms">Agree</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-overlay>
   </v-toolbar>
 </template>
 
@@ -37,35 +50,22 @@
 import { ref } from 'vue';
 import { defineProps } from 'vue';
 import Hls from 'hls.js'
-import { onMounted, watch } from 'vue';
+import { watch, onMounted } from 'vue';
+import CryptoJS from 'crypto-js';
 
 const isLocal = window.location.hostname === 'localhost';
-const streamUrl = ref(isLocal ? 'http://dunkinradio.org/hls/stream.m3u8' : '/hls/stream.m3u8');
+const streamUrl = ref(isLocal ? 'https://dunkinradio.org/hls/stream.m3u8' : '/hls/stream.m3u8');
+const hasAgreed = ref(false);
+const hasPlayed = ref(false);
+
+const isLoadingStream = ref(false);
 
 const player = ref<HTMLAudioElement | null>(null);
-
-onMounted(() => {
-  var hls = new Hls();
-  if (!player.value) return;
-
-  if (Hls.isSupported()) {
-    hls.loadSource(streamUrl.value);
-    hls.attachMedia(player.value);
-    hls.on(Hls.Events.MANIFEST_PARSED, function () {
-      play();
-    });
-  } else if (player.value.canPlayType('application/vnd.apple.mpegurl')) {
-    player.value.src = streamUrl.value;
-    player.value.addEventListener('canplay', function () {
-      play();
-    });
-  }
-});
 
 const props = defineProps<{ songName: string, artistName: string, albumUrl: string, spotifyLink: string }>();
 
 const isPlaying = ref(false);
-const volume = ref(50);
+const volume = ref(100);
 const oldVolume = ref(volume.value);
 const isMuted = ref(false);
 
@@ -74,11 +74,35 @@ watch(volume, (newVolume) => {
   player.value.volume = newVolume / 100;
 });
 
+const initStream = () => {
+  isLoadingStream.value = true;
+  setTimeout(() => { isLoadingStream.value = false }, 800);
+
+  var hls = new Hls();
+  if (!player.value) return;
+
+  if (Hls.isSupported()) {
+    hls.loadSource(streamUrl.value);
+    hls.attachMedia(player.value);
+  } else if (player.value.canPlayType('application/vnd.apple.mpegurl')) {
+    player.value.src = streamUrl.value;
+  }
+
+  hasPlayed.value = true;
+}
+
 const play = () => {
+  if (!hasAgreed.value)
+    return;
+  if (!hasPlayed.value)
+    initStream();
+
   player.value?.play();
+  isPlaying.value = true;
 };
 
 const pause = () => {
+  isPlaying.value = false;
   player.value?.pause();
 };
 
@@ -104,5 +128,30 @@ const mute = () => {
 const unmute = () => {
   volume.value = oldVolume.value;
 };
+
+const LEGAL_AGREEMENT_KEY = 'legalAgreementHash';
+const hashLegalAgreement = () => {
+  const legalAgreementElement = document.getElementById('legal-agreement');
+  if (legalAgreementElement) {
+    const textContent = legalAgreementElement.textContent || '';
+    return CryptoJS.SHA256(textContent).toString();
+  }
+  return '';
+};
+const checkAgreement = () => {
+  const storedHash = localStorage.getItem(LEGAL_AGREEMENT_KEY);
+  const currentHash = hashLegalAgreement();
+  if (storedHash === currentHash) {
+    hasAgreed.value = true;
+  }
+};
+const agreeToTerms = () => {
+  const currentHash = hashLegalAgreement();
+  localStorage.setItem(LEGAL_AGREEMENT_KEY, currentHash);
+  hasAgreed.value = true;
+  play();
+};
+
+onMounted(checkAgreement);
 </script>
 
