@@ -12,6 +12,12 @@ services:
       - SSL_CERTIFICATE=/etc/letsencrypt/live/dunkinradio.org/fullchain.pem
       - SSL_CERTIFICATE_KEY=/etc/letsencrypt/live/dunkinradio.org/privkey.pem
     restart: always
+    healthcheck:
+      test: curl --fail http://localhost/healthcheck || exit 1
+      interval: 30s        # Time between health checks
+      timeout: 10s         # Time to wait for a response
+      retries: 3           # Number of retries before marking as unhealthy
+      start_period: 10s    # Time to wait before starting health checks
 
   certbot:
     image: certbot/certbot
